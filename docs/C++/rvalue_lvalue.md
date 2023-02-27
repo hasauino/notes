@@ -2,7 +2,7 @@
 
 Here's an example that demonstrates the difference between an lvalue and an rvalue:
 
-```c++
+```cpp
 int x = 5;   // "x" is an lvalue
 int y = x;   // "x" is an lvalue, "y" is also an lvalue
 int z = 3 + 4;   // "3 + 4" is an rvalue, "z" is an lvalue
@@ -18,7 +18,7 @@ In C++, an lvalue is an expression that refers to an object that has a persisten
 
 An rvalue reference can be declared using the "&&" symbol. Here's an example that demonstrates how an rvalue reference can be used:
 
-```c++
+```cpp
 int&& r = 5 + 6;
 std::cout << r << std::endl;
 ```

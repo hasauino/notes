@@ -6,7 +6,7 @@
 
 ## Copying
 
-```c++
+```cpp
 #include <algorithm>
 #include <initializer_list>
 #include "spdlog/spdlog.h"
