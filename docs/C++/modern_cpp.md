@@ -228,7 +228,7 @@ void do_something(vector<int>& v)
 
 ## Enums
 
-Use **enum class* ** instead of just **enum** to avoid implicitly mixing them with integers. Also scope of the enumerators in this case is enum class, this avoids any confusion.
+Use **enum class ** instead of just **enum** to avoid implicitly mixing them with integers. Also scope of the enumerators in this case is enum class, this avoids any confusion.
 
 ```cpp
 int i = Color::red;// error: Color::red is not an int

@@ -58,3 +58,29 @@ int main(int argc, char** argv) {
 }
 ```
 
+
+
+## Moving
+
+- A move operation is performed when an rvalue reference is used as:
+
+  - an initializer
+  - right hand side of an assignment
+
+  For the previous `Vector` class, move constructor and move assignment might look like this:
+
+```cpp
+  Vector(Vector&& v) : size{static_cast<int>(v.size)}, elem{v.elem} {
+    v.elem = nullptr;
+    v.size = 0;
+  }
+
+  Vector& operator=(Vector&& v) {
+    delete[] elem;
+    elem = v.elem;
+    size = v.size;
+    v.size = 0;
+    v.elem = nullptr;
+  }
+```
+
