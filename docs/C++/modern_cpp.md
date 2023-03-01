@@ -17,7 +17,23 @@ void incr(map<string, int> &m)
 }
 ```
 
+- Using `auto&` will get you a reference to the elements of the sequence:
 
+  ```cpp
+  int v[] = {1, 2, 3, 4, 5};
+  
+  // by value, elements are unchanged
+  for (int num : v) {
+      num++;
+  }
+  
+  // by reference, elements will be modified
+  for (int& num : v) {
+      num++;
+  }
+  ```
+
+- This works for any type, not just arrays. As long the type has `begin()` and `end()` methods that return pointers to the first and last element in the sequence respectively.
 
 
 
