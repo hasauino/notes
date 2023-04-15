@@ -10,6 +10,48 @@ https://code.visualstudio.com/docs/cpp/config-linux
 
 
 
+## C++ Configuration
+
+```json
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c17",
+            "intelliSenseMode": "linux-clang-x64",
+            "compileCommands": "${config:cmake.buildDirectory}/compile_commands.json",
+            "configurationProvider": "ms-vscode.makefile-tools"
+        }
+    ],
+    "version": 4
+}
+```
+
+
+
+this line:
+
+```json
+"compileCommands": "${config:cmake.buildDirectory}/compile_commands.json",
+```
+
+will allow vs code to navigate and fine project header files.
+
+this line:
+
+```json
+"compilerPath": "/usr/bin/g++",
+```
+
+allows vscode to find C++ standard library recognized by the compiler.
+
+
+
 ## Formatting
 
 After installing C++ extension, you can add `.clang-format` to the workspace, or define it globally somewhere else. To define it globally: 
