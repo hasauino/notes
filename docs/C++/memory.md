@@ -1,8 +1,8 @@
-# :floppy_disk: Memory
+# Memory
 
 
 
-[TOC]
+
 
 ## Memory Types
 
@@ -63,7 +63,7 @@ In CPUs, there is a caching mechanism which stores chunks of memory that is like
 
 **Example**
 
-```C++
+```cpp
 #include <chrono>
 #include <cstdio>
 #include <iostream>
@@ -128,7 +128,7 @@ variables in sections 4 & 5 are allocated once at start and persist throughout t
 
 These are functions which are part of the `stdlib.h` header file in C.
 
-```c++
+```cpp
 #include <cstdlib>
 #include <cstddef>
 #include <string>
@@ -188,7 +188,7 @@ void example_4(){
 
 
 
-```c++
+```cpp
 #include <cstdio>
 #include <string>
 
@@ -247,7 +247,7 @@ void example_4() {
 
 ### Overriding `new`/`delete` operators
 
-```c++
+```cpp
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
