@@ -304,3 +304,494 @@ valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --log-file=
 
 ```
 
+
+
+
+
+## Copy & Move Semantics
+
+- Without defining a copy or move constructor/operator, the compiler defines default ones which perform a shallow copy/move.
+
+```cpp
+#include <cstddef>
+#include <iostream>
+
+using namespace std;
+
+class Simple{
+    public:
+    	Simple(size_t size){
+            this->memory_block = new int[size];
+        }
+    	~Simple(){
+            delete[] this->memory_block;
+        }
+    	void print_addresses(){
+            cout << "Object address: " << this << endl;
+            cout << "Memory block address: " << this->memory_block << endl;
+        }
+    private:
+    	int* memory_block;
+};
+
+
+void example(){
+    Simple object1{10};
+    Simple object2{object1};
+    
+    object1.print_addresses();
+    object2.print_addresses();
+    
+    // when destructors are called, an error will be raised due to releasing same memory twice 
+}
+```
+
+
+
+### Copy-ownership Policy
+
+A design choice must be made when creating a class, is the copying policy.
+
+#### 1. No copying/moving
+
+```cpp
+
+class NoCopyNoMove{
+	public:
+		NoCopyNoMove(const NoCopyNoMove& other) = delete;
+    	NoCopyNoMove& operator=(const NoCopyNoMove& other) = delete;
+    
+    	NoCopyNoMove(NoCopyNoMove&& other) = delete();
+    	NoCopyNoMove& operator=(NoCopyNoMove&& other) = delete;
+};
+```
+
+
+
+#### 2. Exclusive Ownership
+
+```cpp
+#include <cstddef>
+#include <utility>
+
+using namespace std;
+
+class Example{
+    public:
+    	Example(size_t size){
+            memory_block = new int[size];            
+        };
+    	~Example(){
+            delete[] memory_block;
+        }
+    	Example(Example& other) = delete;
+    	Example& operator=(Example& other) = delete;
+    
+    	Example(Example&& other){
+            this->memory_block = other.memory_block;
+            other.memory_block = nullptr;
+        }
+    private:
+    	int* memory_block;
+};
+
+int main(int argc, char** argv) {
+    Example object1{10};
+    Example object2{move(object1)};
+    return 0;
+}
+```
+
+
+
+#### 3. Deep Copy
+
+```cpp
+#include <iostream>
+
+class DeepCopy
+{
+private:
+    int *_myInt;
+
+public:
+    DeepCopy(int val)
+    {
+        _myInt = (int *)malloc(sizeof(int));
+        *_myInt = val;
+        std::cout << "resource allocated at address " << _myInt << std::endl;
+    }
+    ~DeepCopy()
+    {
+        free(_myInt);
+        std::cout << "resource freed at address " << _myInt << std::endl;
+    }
+    DeepCopy(DeepCopy &source)
+    {
+        _myInt = (int *)malloc(sizeof(int));
+        *_myInt = *source._myInt;
+        std::cout << "resource allocated at address " << _myInt << " with _myInt = " << *_myInt << std::endl;
+    }
+    DeepCopy &operator=(DeepCopy &source)
+    {
+        _myInt = (int *)malloc(sizeof(int));
+        std::cout << "resource allocated at address " << _myInt << " with _myInt=" << *_myInt << std::endl;
+        *_myInt = *source._myInt;
+        return *this;
+    }
+};
+
+int main()
+{
+    DeepCopy source(42);
+    DeepCopy dest1(source);
+    DeepCopy dest2 = dest1;
+
+    return 0;
+}
+```
+
+
+
+#### 4. Shared Ownership
+
+```cpp
+#include <iostream>
+
+class SharedCopy
+{
+private:
+    int *_myInt;
+    static int _cnt;
+
+public:
+    SharedCopy(int val);
+    ~SharedCopy();
+    SharedCopy(SharedCopy &source);
+};
+
+int SharedCopy::_cnt = 0;
+
+SharedCopy::SharedCopy(int val)
+{
+    _myInt = (int *)malloc(sizeof(int));
+    *_myInt = val;
+    ++_cnt;
+    std::cout << "resource allocated at address " << _myInt << std::endl;
+}
+
+SharedCopy::~SharedCopy()
+{
+    --_cnt;
+    if (_cnt == 0)
+    {
+        free(_myInt);
+        std::cout << "resource freed at address " << _myInt << std::endl;
+    }
+    else
+    {
+        std::cout << "instance at address " << this << " goes out of scope with _cnt = " << _cnt << std::endl;
+    }
+}
+
+SharedCopy::SharedCopy(SharedCopy &source)
+{
+    _myInt = source._myInt;
+    ++_cnt;
+    std::cout << _cnt << " instances with handles to address " << _myInt << " with _myInt = " << *_myInt << std::endl;
+}
+
+int main()
+{
+    SharedCopy source(42);
+    SharedCopy destination1(source);
+    SharedCopy destination2(source);
+    SharedCopy destination3(source);
+
+    return 0;
+}
+```
+
+
+
+#### Rule of Three
+
+If a class defines on of: a destructor, copy constructor, or copy assignment operator, then it must define the other two and properly manage resources.
+
+
+
+### rvalue & lvalue
+
+Here's an example that demonstrates the difference between an lvalue and an rvalue:
+
+```cpp
+int x = 5;   // "x" is an lvalue
+int y = x;   // "x" is an lvalue, "y" is also an lvalue
+int z = 3 + 4;   // "3 + 4" is an rvalue, "z" is an lvalue
+```
+
+
+
+#### rvalue reference
+
+An rvalue reference is a new feature introduced in C++11, which extends the concept of reference types in C++. An rvalue reference is a reference that is used to refer to an object that has a limited lifespan, often referred to as an rvalue.
+
+In C++, an lvalue is an expression that refers to an object that has a persistent storage location in memory, such as a variable, an array, or a struct. An rvalue, on the other hand, is an expression that refers to a temporary value that is not stored in a persistent location in memory, such as the result of a function call or a literal value.
+
+An rvalue reference can be declared using the "&&" symbol. Here's an example that demonstrates how an rvalue reference can be used:
+
+```cpp
+int&& r = 5 + 6; % rvalue reference
+int a{5};
+int& b = a; % lvalue refernece
+std::cout << r << std::endl;
+```
+
+In this example, the expression "5 + 6" is an rvalue, and the rvalue reference "r" is used to refer to it. The rvalue reference "r" can be used in the same way as an lvalue reference to access the value of the temporary object.
+
+Rvalue references are often used in move semantics, which is a technique that enables efficient transfer of resources from one object to another. Move semantics can be used to avoid unnecessary copying of objects, which can improve the performance of C++ programs. Rvalue references are also used to implement perfect forwarding, which is a technique for forwarding function arguments to other functions without losing their value category (lvalue or rvalue).
+
+
+
+
+
+## Essential Operations
+
+
+
+
+
+### Copying
+
+```cpp
+#include <algorithm>
+#include <initializer_list>
+#include "spdlog/spdlog.h"
+
+class Vector {
+ public:
+  Vector(int _size) : size{_size}, elem{new double[_size]} {};
+  ~Vector() {
+    spdlog::info("destructor..");
+    delete[] elem;
+  }
+  Vector(std::initializer_list<double> elem_)
+      : size{static_cast<int>(elem_.size())}, elem{new double[elem_.size()]} {
+    std::copy(elem_.begin(), elem_.end(), elem);
+  }
+
+  Vector(const Vector& v) : size{v.size}, elem{new double[v.size]} {
+    spdlog::info("copy constructor..");
+    std::copy(v.elem, v.elem + size, elem);
+  }
+
+  const double& operator[](int indx) const { return elem[indx]; }
+  double& operator[](int indx) { return elem[indx]; }
+
+  Vector& operator=(const Vector& v) {
+    double* temp = new double[v.size];
+    std::copy(v.elem, v.elem + v.size, temp);
+    delete[] elem;
+    elem = temp;
+    size = v.size;
+    return *this;
+  }
+
+ private:
+  double* elem;
+  int size = 0;
+};
+
+int main(int argc, char** argv) {
+  Vector v({1.0, 2.0, 3.0});
+  Vector vv(v);
+  Vector vvv({100, 22, 33, 44, 55});
+  vvv = v;
+  auto vvvv =
+      v;  // this will call copy constructor (if u add "explicit" it will raise an error)
+  v[0] = 12345;
+  spdlog::info("{}        {}          {}", v[0], vv[0], vvv[0]);
+  return 0;
+}
+```
+
+- copy assignment operator is not called when we instantiate an object. Example:
+
+```cpp
+MyClass obj2 = obj1; // will call the copy constructor
+obj2 = obj1; // will call copy assignment operator 
+```
+
+ 
+
+### Moving
+
+- A move operation is performed when an rvalue reference is used as:
+
+  - an initializer
+  - right hand side of an assignment
+
+  For the previous `Vector` class, move constructor and move assignment might look like this:
+
+```cpp
+  Vector(Vector&& v) : size{static_cast<int>(v.size)}, elem{v.elem} {
+    v.elem = nullptr;
+    v.size = 0;
+  }
+
+  Vector& operator=(Vector&& v) {
+    delete[] elem;
+    elem = v.elem;
+    size = v.size;
+    v.size = 0;
+    v.elem = nullptr;
+  }
+```
+
+
+
+### Rule of 5
+
+Exmaple:
+
+```cpp
+#include <stdlib.h>
+#include <iostream>
+
+class MyMovableClass
+{
+private:
+    int _size;
+    int *_data;
+
+public:
+    MyMovableClass(size_t size) // constructor
+    {
+        _size = size;
+        _data = new int[_size];
+        std::cout << "CREATING instance of MyMovableClass at " << this << " allocated with size = " << _size*sizeof(int)  << " bytes" << std::endl;
+    }
+
+    ~MyMovableClass() // 1 : destructor
+    {
+        std::cout << "DELETING instance of MyMovableClass at " << this << std::endl;
+        delete[] _data;
+    }
+    
+    MyMovableClass(const MyMovableClass &source) // 2 : copy constructor
+    {
+        _size = source._size;
+        _data = new int[_size];
+        *_data = *source._data;
+        std::cout << "COPYING content of instance " << &source << " to instance " << this << std::endl;
+    }
+    
+    MyMovableClass &operator=(const MyMovableClass &source) // 3 : copy assignment operator
+    {
+        std::cout << "ASSIGNING content of instance " << &source << " to instance " << this << std::endl;
+        if (this == &source)
+            return *this;
+        delete[] _data;
+        _data = new int[source._size];
+        *_data = *source._data;
+        _size = source._size;
+        return *this;
+    }
+    MyMovableClass(MyMovableClass &&source) // 4 : move constructor
+    {
+        std::cout << "MOVING (c’tor) instance " << &source << " to instance " << this << std::endl;
+        _data = source._data;
+        _size = source._size;
+        source._data = nullptr;
+        source._size = 0;
+    }
+    MyMovableClass &operator=(MyMovableClass &&source) // 5 : move assignment operator
+    {
+        std::cout << "MOVING (assign) instance " << &source << " to instance " << this << std::endl;
+        if (this == &source)
+            return *this;
+
+        delete[] _data;
+
+        _data = source._data;
+        _size = source._size;
+
+        source._data = nullptr;
+        source._size = 0;
+
+        return *this;
+    }    
+};
+
+void useObject(MyMovableClass obj)
+{
+    std::cout << "using object " << &obj << std::endl;
+}
+
+int main()
+{
+    MyMovableClass obj1(100); // constructor
+
+    useObject(std::move(obj1));
+
+    return 0;
+}
+```
+
+
+
+### Moving an lvalue
+
+- When an rvalue reference is passed to the constructor, the move constructor will be the one called, but when an lvalue reference is passed, the copy constructor will be called instead. To force the compiler to choose the move constructor, `std::move()` can be used.
+- `std::move()` is function that accepts an lvalue and returns it as an rvalue.
+
+Example
+
+```cpp
+#include <iostream>
+
+void useObject(MyMovableClass obj)
+{
+    std::cout << "using object " << &obj << std::endl;
+}
+
+int main()
+{
+    MyMovableClass obj1(100); // constructor
+
+    useObject(std::move(obj1));
+
+    return 0;
+}
+```
+
+
+
+## Smart Pointers
+
+## Conversion between smart pointers
+
+```cpp
+#include <iostream>
+#include <memory>
+
+int main()
+{
+    // construct a unique pointer
+    std::unique_ptr<int> uniquePtr(new int);
+    
+    // (1) shared pointer from unique pointer
+    std::shared_ptr<int> sharedPtr1 = std::move(uniquePtr);
+
+    // (2) shared pointer from weak pointer
+    std::weak_ptr<int> weakPtr(sharedPtr1);
+    std::shared_ptr<int> sharedPtr2 = weakPtr.lock();
+
+    // (3) raw pointer from shared (or unique) pointer   
+    int *rawPtr = sharedPtr2.get();
+    delete rawPtr;
+
+    return 0;
+}
+```
+
