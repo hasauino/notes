@@ -740,6 +740,13 @@ int main()
 
 
 
+### Operator Chaining
+
+- Both the copy and move assignment operators return a reference to the object. This is needed to allow **operator chaining**.
+- Always check of self-assignment when overloading assignment operators.
+
+
+
 ### Moving an lvalue
 
 - When an rvalue reference is passed to the constructor, the move constructor will be the one called, but when an lvalue reference is passed, the copy constructor will be called instead. To force the compiler to choose the move constructor, `std::move()` can be used.
@@ -769,7 +776,134 @@ int main()
 
 ## Smart Pointers
 
-## Conversion between smart pointers
+
+
+### RAII
+
+- It's a programming paradaim in which allocated resources are managed by a manager class. Resources are tied to the life time of the manager class. The manager class shall aquire the resources on construction and release them upon destruction. Resources include: memeory, files, netowrk sockets, communication ports, threading locks, etc..
+
+- The manager class shall live on the stack, and resources shall be allocated on the heap. This applies of course to smart points:
+
+  
+
+  :fire: **Smart pointers shall be allocated on the stack, such that the scoping mechanism takes care of releasing resources**
+
+  
+
+- Manager class should enacpsulate and abstract the handling of resources away from programmer.
+
+Example: simple manager class
+
+```cpp
+class MyInt
+{
+    int *_p; // pointer to heap data
+public:
+    MyInt(int *p = NULL) { _p = p; }
+    ~MyInt() 
+    { 
+        std::cout << "resource " << *_p << " deallocated" << std::endl;
+        delete _p; 
+    }
+    int &operator*() { return *_p; } // // overload dereferencing operator
+};
+```
+
+ 
+
+### Unique Pointer
+
+```cpp
+#include <iostream>
+#include <memory>
+#include <string>
+
+struct Person {
+    Person(const std::string& first_name_, const std::string& last_name_,
+           double age_)
+        : first_name{first_name_}, last_name{last_name_}, age{age_} {}
+    std::string first_name;
+    std::string last_name;
+    double age;
+};
+
+
+void example_1() {
+    std::unique_ptr<int> unique(new int{5});
+    auto another = std::move(unique);
+    std::cout << *another << std::endl;
+}
+
+void example_2() {
+    auto num = std::make_unique<int>(5);
+    auto hassan = std::make_unique<Person>("Hassan", "Umari", 33);
+    std::cout << hassan->first_name << " " << hassan->last_name << std::endl;
+}
+```
+
+
+
+### Shared Pointer
+
+```cpp
+#include <memory>
+
+void example_1(){
+    std::shared_ptr<int> shared1(new int{5});
+    auto shared2 = shared1;
+}
+
+void example_2(){
+    auto shared_1 = std::make_shared<int>(5);
+    auto shared_2 = shared_1;
+}
+
+void example_3(){
+    auto shared_1 = std::make_shared<int>(5);
+    shared_1.reset(new int{10});
+}
+```
+
+
+
+### Weak Pointer
+
+```cpp
+#include <memory>
+#include <iostream>
+
+void example_1(){
+    std::shared_ptr<int> shared(new int{100});
+    std::weak_ptr<int> weak_1(shared);
+    std::cout << *weak_1.lock() << std::endl; // access using lock()
+    std::weak_ptr<int> weak_2(weak_1);
+}
+
+void example_2(){
+    std::shared_ptr<int> shared(new int);
+    std::weak_ptr<int> weak(shared);
+
+    shared.reset(new int);
+
+    if (weak.expired() == true)
+    {
+        std::cout << "Weak pointer expired!" << std::endl;
+    }
+
+    return 0;
+}
+```
+
+
+
+### Performance
+
+- Always perfer to use unique pointer over shared.
+- always use `make_*()` factory functions:
+  - They have slightky better performance.
+  - Creation of smart pointer in a single step eliminating memory leak if resource constructor raises an error.
+
+### Conversion between smart pointers
 
 ```cpp
 #include <iostream>
@@ -794,4 +928,70 @@ int main()
     return 0;
 }
 ```
+
+
+
+### Transferring Ownership
+
+```cpp
+#include <cstdio>
+#include <memory>
+#include <string>
+
+struct Person {
+    Person(const std::string& name_, double age_) : age{age_}, name{name_} {}
+    std::string name;
+    double age;
+};
+
+std::unique_ptr<Person> inspect_person(std::unique_ptr<Person> person) {
+    printf("Unique Person with name: %s, and age: %0.1f, is innocent\n",
+           person->name.c_str(), person->age);
+    return person;
+}
+
+void inspect_person(std::shared_ptr<Person> person) {
+    printf("Shared Person with name: %s, and age: %0.1f, is innocent\n",
+           person->name.c_str(), person->age);
+}
+
+void inspect_person_weak(std::weak_ptr<Person> person) {
+    printf("Weak Person with name: %s, and age: %0.1f, is innocent\n",
+           person.lock()->name.c_str(), person.lock()->age);
+}
+
+void example_1() {
+    printf("Transferring unique ptr\n");
+    auto person = std::make_unique<Person>("Hassan", 33);
+    person = inspect_person(std::move(person));
+
+    printf("\n\nTransferring shared ptr\n");
+    std::shared_ptr<Person> shared = std::move(person);
+    inspect_person(shared);
+
+    printf("\n\nTransferring weak ptr\n");
+    inspect_person_weak(shared);
+}
+int main() {
+    example_1();
+
+    return 0;
+}
+}
+```
+
+
+
+- The following list contains all the variations (omitting `const`) of passing an object to a function:
+
+```
+void f( object* );  // recommended passing objects
+void f( object& ); // recommended, no need to represent absence of object (nullptr)
+void f( unique_ptr<object> ); // object sink
+void f( unique_ptr<object>& ); // in and out unique ptr
+void f( shared_ptr<object> ); // shared ownership
+void f( shared_ptr<object>& ); // in and out shared ptr
+```
+
+
 

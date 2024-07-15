@@ -325,3 +325,28 @@ else
 }
 ```
 
+
+
+## Lambda Functions
+
+```cpp
+void example(){
+    
+    auto add1 = [](int a, int b)-> int {return a+b;};
+    
+    auto add2 = [](int a, int b) {return a+b;}; // auto deduction of return type
+    
+    int a = 100;
+    int b = 200;
+    
+    auto add3 = [a, b](){return a+b;}; // capture clause (by value)
+
+    auto add4 = [&a, &b](){return a+b;}; // capture clause (by reference)
+
+    add1(1, 2);
+    add2(10, 20);
+    add3();
+    
+}
+```
+
