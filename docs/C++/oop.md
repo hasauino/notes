@@ -47,3 +47,33 @@ int main(int argc, char** argv) {
 
 
 :warning: :fire: Always define a destructor in the interface, in order to allow calling the destructor of the derived class when the instance is manipulated through a pointer of the base class.
+
+
+
+```cpp
+#include <iostream>
+
+struct Animal {
+    std::string name;
+    virtual void make_sound() {
+        std::cout << "Animal default sound" << std::endl;
+    }
+};
+
+struct Dog : public Animal {
+    void make_sound() override{
+        Animal::make_sound();
+        std::cout << "Wo Wo Wo" << std::endl;
+
+    }
+};
+
+int main() {
+    Dog d;
+    d.name = "Vog";
+    d.make_sound();
+    return 0;
+}
+
+```
+

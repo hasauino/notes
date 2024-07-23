@@ -995,3 +995,37 @@ void f( shared_ptr<object>& ); // in and out shared ptr
 
 
 
+
+
+
+
+## Tips
+
+
+
+### enable_shared_from_this
+
+Inherit from this template class to allow recovering a shared pointer from `this`. If an instance pointer is wrapper in a shared pointer, you cannot get a shared pointer from `this`. As this will create a new shared pointer that has different reference count.
+The solution is to inherit from this template class, you can then use `shared_from_this()` method to get a shared pointer from `this`.
+
+```cpp
+// enable_shared_from_this example
+#include <iostream>
+#include <memory>
+
+struct C : std::enable_shared_from_this<C> { };
+
+int main () {
+  std::shared_ptr<C> foo, bar;
+
+  foo = std::make_shared<C>();
+
+  bar = foo->shared_from_this();
+
+  if (!foo.owner_before(bar) && !bar.owner_before(foo))
+    std::cout << "foo and bar share ownership";
+
+  return 0;
+}
+```
+

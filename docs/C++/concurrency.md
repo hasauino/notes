@@ -273,3 +273,40 @@ auto dog = std::make_shared<Dog>("Cesar");
 std::thread thread{&Dog::make_sound, dog};
 ```
 
+
+
+
+
+## Running Multiple Threads
+
+
+
+### Fork-Join Parallelism
+
+- split work across threads (worker threads) + main thread.
+- let main thread join all threads (join is the barrier).
+
+
+
+```cpp
+#include <vector>
+#include <thread>
+#include <iostream>
+
+int main(){
+    std::vector<std::thread> workers;
+    // fork
+    for (int i=0; i<5; i++){
+        workers.emplace_back(std::thread{[i](){
+			std::cout << "thread: " << i << std::endl;            
+        }});
+    }
+    //join
+    for (auto& worker : workers){
+        worker.join();
+    }
+    
+    return 0;
+}
+```
+
