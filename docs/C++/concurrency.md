@@ -277,11 +277,11 @@ std::thread thread{&Dog::make_sound, dog};
 
 
 
-## Running Multiple Threads
+### Running Multiple Threads
 
 
 
-### Fork-Join Parallelism
+#### Fork-Join Parallelism
 
 - split work across threads (worker threads) + main thread.
 - let main thread join all threads (join is the barrier).
@@ -310,3 +310,162 @@ int main(){
 }
 ```
 
+
+
+
+
+## Passing Data Between Threads
+
+
+
+### Promise-Future
+
+```cpp
+#include <chrono>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <thread>
+
+using namespace std::chrono_literals;
+
+void callback(std::promise<std::string>&& promise) {
+    std::this_thread::sleep_for(2s);
+    promise.set_value("done");
+}
+
+int main() {
+    std::promise<std::string> promise;
+    auto future = promise.get_future();
+    std::thread t{callback, std::move(promise)};
+
+    std::cout << "Waiting.." << std::endl;
+
+    auto msg = future.get();
+    std::cout << "Got this message:\n" << msg << std::endl;
+
+    t.join();
+
+    return 0;
+}
+```
+
+
+
+#### Example using `wait_for`
+
+```cpp
+#include <chrono>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <thread>
+
+using namespace std::chrono_literals;
+
+void callback(std::promise<std::string>&& promise) {
+    std::cout << "please press Enter\n";
+    std::cin.get();
+    promise.set_value("done");
+}
+
+int main() {
+    std::promise<std::string> promise;
+    auto future = promise.get_future();
+    std::thread t{callback, std::move(promise)};
+
+    std::cout << "Waiting.." << std::endl;
+
+    auto status = future.wait_for(2s);
+    if (status != std::future_status::ready) {
+        std::cout << "Error!" << std::endl;
+        return -1;
+    }
+    auto msg = future.get();
+    std::cout << "Got this message:\n" << msg << std::endl;
+
+    t.join();
+
+    return 0;
+}
+```
+
+
+
+#### Passing Exceptions
+
+```cpp
+#include <future>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <thread>
+
+void callback(std::promise<std::string>&& promise) {
+    throw std::runtime_error("Error!");
+}
+
+int main() {
+    std::promise<std::string> promise;
+    auto future = promise.get_future();
+    std::thread t{callback, std::move(promise)};
+
+    auto msg = future.get();
+
+    t.join();
+
+    return 0;
+}
+```
+
+
+
+
+
+### Threads VS. Tasks (std::async)
+
+```cpp
+#include <functional>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <thread>
+
+double divide(double a, double b) {
+    if (b == 0) {
+        throw std::runtime_error("Cannot divide by Zero!");
+    }
+    return a / b;
+}
+
+int main() {
+    auto future = std::async(divide, 10, 20);
+    try {
+        std::cout << future.get() << std::endl;
+    } catch (std::exception e) {
+        std::cout << e.what() << std::endl;
+    }
+
+    return 0;
+}
+```
+
+- The system decides whether to run the function in a separate thread or the caller's thread.
+
+- We can enforce that using the launch parameter:
+
+  ```cpp
+  std::async(std::launch::deferred, divide, 10, 20); // sync - same thread
+  std::async(std::launch::async, divide, 10, 20);    // async - separate thread 
+  ```
+
+- Starting threads is expensive. For low computation loads, using a single thread can be faster. The overhead of running threads must be less than the gain in speed of using multi-cores for it to be useful.
+
+
+
+### Avoiding Data Races
+
+- Passing by value is a safe way to avoid data races.
