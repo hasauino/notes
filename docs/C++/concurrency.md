@@ -469,3 +469,250 @@ int main() {
 ### Avoiding Data Races
 
 - Passing by value is a safe way to avoid data races.
+
+
+
+### `enable_shared_from_this`
+
+```cpp
+class Example : public std::enable_shared_from_this<Vehicle>
+{
+public:
+    // constructor / desctructor
+    std::shared_ptr<Example> foo(){
+        return get_shared_this;
+    }
+};
+```
+
+
+
+
+
+## Mutexes and Locks
+
+Mutex = Mutual Exclusion.
+
+### Using Mutex to Protect Shared Data
+
+```cpp
+#include <chrono>
+#include <cstddef>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <thread>
+#include <vector>
+
+using namespace std::chrono_literals;
+
+void greeting(std::shared_ptr<std::mutex> mutex) {
+    mutex->lock();
+    std::cout << "hello World!" << std::endl;
+    std::this_thread::sleep_for(1us);
+    mutex->unlock();
+}
+
+int main() {
+    std::size_t number_threads{10};
+    auto mutex = std::make_shared<std::mutex>();
+    std::vector<std::thread> threads{number_threads};
+
+    for (int i = 0; i < number_threads; i++) {
+        threads[i] = std::thread{&greeting, mutex};
+    }
+
+    for (int i = 0; i < number_threads; i++) {
+        threads[i].join();
+    }
+
+    return 0;
+}
+```
+
+
+
+#### Types of Mutexes
+
+- `mutex`: normal `lock()`, `unlock()`, and `try_lock()`.
+- `recursive_mutex`: same thread can acquire the lock multiple times.
+- `timed_mutex`: adds `try_lock_for()`, and `try_lock_until()`
+- `recursive_timed_mutex`: combo of `recursive_mutex` and `timed_mutex`.
+
+
+
+#### Dead-Locks
+
+**Example 1**: Error raised preventing `unlock()`.
+
+```cpp
+#include <chrono>
+#include <exception>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <thread>
+
+using namespace std::chrono_literals;
+
+int main() {
+    auto mutex = std::make_shared<std::mutex>();
+    auto f1 = std::async([mutex]() {
+        std::cout << "thread 1 waiting lock...\n";
+        mutex->lock();
+        std::cout << "thread 1 error...\n";
+        throw std::runtime_error("Error");
+        mutex->unlock();
+    });
+
+    auto f2 = std::async([mutex]() {
+        std::this_thread::sleep_for(1us);
+        std::cout << "thread 2 waiting lock...\n";
+        mutex->lock();
+        std::cout << "thread 2 running...\n";
+        mutex->unlock();
+    });
+
+    f1.wait();
+    f2.wait();
+
+    return 0;
+}
+```
+
+
+
+**Example 2**: cyclic dependency on locks
+
+```cpp
+#include <algorithm>
+#include <chrono>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <thread>
+#include <vector>
+
+using namespace std::chrono_literals;
+
+int main() {
+    auto m1 = std::make_shared<std::mutex>();
+    auto m2 = std::make_shared<std::mutex>();
+
+    std::thread t1{[m1, m2]() {
+        std::cout << "t1 acquiring m1 lock\n";
+        m1->lock();
+        std::this_thread::sleep_for(1us);
+        std::cout << "t1 m1 locked\n";
+        std::cout << "t1 acquiring m2 lock\n";
+        m2->lock();
+        std::cout << "t1 m2 locked\n";
+        m2->unlock();
+        std::cout << "t1 m2 un-locked\n";
+        m1->unlock();
+        std::cout << "t1 m1 un-locked\n";
+    }};
+    std::thread t2{[m1, m2]() {
+        std::cout << "t2 acquiring m2 lock\n";
+        m2->lock();
+        std::this_thread::sleep_for(1us);
+        std::cout << "t2 m2 locked\n";
+        std::cout << "t2 acquiring m1 lock\n";
+        m1->lock();
+        std::cout << "t2 m1 locked\n";
+        m1->unlock();
+        std::cout << "t2 m1 un-locked\n";
+        m2->unlock();
+        std::cout << "t2 m2 un-locked\n";
+    }};
+
+    t1.join();
+    t2.join();
+    return 0;
+}
+```
+
+
+
+#### Avoiding Dead Locks
+
+##### 1. Lock guards
+
+```cpp
+#include <chrono>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <thread>
+
+using namespace std::chrono_literals;
+
+int main() {
+    auto stream_mutex = std::make_shared<std::mutex>();
+
+    auto f1 = std::async([stream_mutex]() {
+        std::lock_guard<std::mutex> lock{*stream_mutex};
+        std::this_thread::sleep_for(100ms);
+        std::cout << "thread 1\n";
+    });
+
+    auto f2 = std::async([stream_mutex]() {
+        std::lock_guard<std::mutex> lock{*stream_mutex};
+        std::this_thread::sleep_for(100ms);
+        std::cout << "thread 2\n";
+    });
+
+    f1.wait();
+    f2.wait();
+
+    return 0;
+}
+```
+
+
+
+#### 2. Unique Lock
+
+```cpp
+#include <chrono>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <thread>
+
+using namespace std::chrono_literals;
+
+int main() {
+    auto stream_mutex = std::make_shared<std::mutex>();
+
+    auto f1 = std::async([stream_mutex]() {
+        std::unique_lock<std::mutex> lock{*stream_mutex};
+        std::this_thread::sleep_for(100ms);
+        std::cout << "thread 1\n";
+        lock.unlock();
+        std::this_thread::sleep_for(100ms);
+        lock.lock();
+        std::cout << "thread 1 again!\n";
+    });
+
+    auto f2 = std::async([stream_mutex]() {
+        std::unique_lock<std::mutex> lock{*stream_mutex};
+        std::this_thread::sleep_for(100ms);
+        std::cout << "thread 2\n";
+        lock.unlock();
+        std::this_thread::sleep_for(100ms);
+        lock.lock();
+        std::cout << "thread 2 again!\n";
+    });
+
+    f1.wait();
+    f2.wait();
+
+    return 0;
+}
+```
+
