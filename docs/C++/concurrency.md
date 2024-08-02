@@ -716,3 +716,44 @@ int main() {
 }
 ```
 
+
+
+#### 3. lock
+
+``std::lock`` makes sure both mutexes are locked at the same time.
+
+```cpp
+#include <thread>
+#incldue <iostream>
+#include <chrono>
+#include <mutex>
+
+using namespace std::chrono_literals;
+
+int main(){
+    std::mutex m1, m2;
+    std::thread t1{[&m1, &m2](){
+        std::lock(m1, m2);
+        std::unique_lock lock1{m1}, lock2{m2};
+        lock1.lock();
+        std::cout << "t1 - 1\n";
+        lock2.lock();
+        std::cout << "t1 - 2\n";
+        lock2.unlock();
+        lock1.unlock();
+    }};
+
+    std::thread t2{[&m1, &m2](){
+        std::lock(m1, m2);
+        std::unique_lock lock1{m1}, lock2{m2};
+        lock2.lock();
+        std::cout << "t1 - 1\n";
+        lock1.lock();
+        std::cout << "t1 - 2\n";
+        lock1.unlock();
+        lock2.unlock();
+    }};    
+    return 0;
+}
+```
+
