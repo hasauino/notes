@@ -757,3 +757,96 @@ int main(){
 }
 ```
 
+
+
+### Conditional Variables
+
+```cpp
+#include <chrono>
+#include <condition_variable>
+#include <cstddef>
+#include <deque>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <vector>
+
+using namespace std::chrono_literals;
+std::mutex cout_mutex;
+
+template <typename T>
+class MessageQueue {
+   public:
+    T read() {
+        while (1) {
+            std::unique_lock<std::mutex> guard{this->_mutex};
+            if (this->_queue.empty()) {
+                this->_conditional_variable.wait(guard);
+                continue;
+            }
+            auto msg = this->_queue[0];
+            this->_queue.pop_front();
+            return msg;
+        }
+    }
+    void write(T msg) {
+        std::unique_lock<std::mutex> guard{this->_mutex};
+        this->_queue.push_back(msg);
+        guard.unlock();
+        this->_conditional_variable.notify_all();
+    }
+
+   private:
+    std::deque<T> _queue;
+    std::mutex _mutex;
+    std::condition_variable _conditional_variable;
+};
+
+int main() {
+    std::size_t n_writers{5};
+    std::size_t n_readers{10};
+    auto queue = std::make_shared<MessageQueue<std::string>>();
+
+    std::vector<std::thread> writer_threads;
+    for (int thread_id = 0; thread_id < n_writers; thread_id++) {
+        writer_threads.emplace_back(std::thread{[queue, thread_id]() {
+            for (int i = 0;; i++) {
+                std::stringstream ss;
+                ss << "Hello " << i << ", from Writer " << thread_id;
+                queue->write(ss.str());
+                std::this_thread::sleep_for(
+                    std::chrono::seconds{thread_id * 2 + 1});
+            }
+        }});
+    }
+
+    std::vector<std::thread> reader_threads;
+    for (int thread_id = 0; thread_id < n_readers; thread_id++) {
+        reader_threads.emplace_back(std::thread{[queue, thread_id]() {
+            while (1) {
+                auto msg = queue->read();
+
+                std::unique_lock<std::mutex> cout_guard{cout_mutex};
+                std::cout << "Reader " << thread_id << ", got msg: " << msg
+                          << std::endl;
+                cout_guard.unlock();
+
+                std::this_thread::sleep_for(100ms);
+            }
+        }});
+    }
+
+    for (auto& thread : writer_threads) {
+        thread.join();
+    }
+    for (auto& thread : reader_threads) {
+        thread.join();
+    }
+
+    return 0;
+}
+```
+
